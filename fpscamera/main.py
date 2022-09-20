@@ -3,19 +3,21 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from pyopengltk import OpenGLFrame
 import random
-
+import math
+# https://www.youtube.com/watch?v=fJFb28y8drM
+# https://gist.github.com/krzygorz/bd5c7fc5bfa5b50c6cbd
 
 class GLFrame(OpenGLFrame):
     def initgl(self):
         self.vertices = [
-            [0.0, 0.0, 0.0],  # 0
-            [1.0, 0.0, 0.0],  # 1
-            [1.0, 1.0, 0.0],  # 2
-            [0.0, 1.0, 0.0],  # 3
-            [0.0, 0.0, 1.0],  # 4
-            [1.0, 0.0, 1.0],  # 5
-            [1.0, 1.0, 1.0],  # 6
-            [0.0, 1.0, 1.0],  # 7
+            [-0.5, -0.5, -0.5],  # 0
+            [0.5, -0.5, -0.5],  # 1
+            [0.5, 0.5, -0.5],  # 2
+            [-0.5, 0.5, -0.5],  # 3
+            [-0.5, -0.5, 0.5],  # 4
+            [0.5, -0.5, 0.5],  # 5
+            [0.5, 0.5, 0.5],  # 6
+            [-0.5, 0.5, 0.5],  # 7
         ]
         self.faces = [
             [4, 5, 6, 7],
@@ -33,11 +35,17 @@ class GLFrame(OpenGLFrame):
           [0.0, 1.0, 0.0],
           [0.0, -1.0, 0.],
         ]
-        self.player_pos = [0.0, 0.0, 0.0]
-        self.world_angle = 0
+        self.camera = [0.0, 1.0, 0.0]
+        self.v = [0.0, 0.0, 0.0]
+        self.speed = 0.1
+        self.angle = 0
+
+        rad = self.torad(self.angle)
+        self.v[0] = math.cos(rad)
+        self.v[2] = math.sin(rad)
 
         self.object_positions = []
-        for i in range(8):
+        for i in range(64):
             x = random.randint(-30, 30)
             y = 0
             z = random.randint(-30, 30)
@@ -51,16 +59,26 @@ class GLFrame(OpenGLFrame):
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
 
+    def torad(self, deg):
+        return deg * (math.pi / 180)
+
     def keypress(self, ev):
-        v = 0.2
         if ev.keysym == 'a':
-            self.world_angle += -1 
+            self.angle -= 1 
+            rad = self.torad(self.angle)
+            self.v[0] = math.cos(rad)
+            self.v[2] = math.sin(rad)
         elif ev.keysym == 'd':
-            self.world_angle += 1
+            self.angle += 1
+            rad = self.torad(self.angle)
+            self.v[0] = math.cos(rad)
+            self.v[2] = math.sin(rad)
         elif ev.keysym == 'w':
-            self.player_pos[2] += -v
+            self.camera[0] += self.v[0] * self.speed
+            self.camera[2] += self.v[2] * self.speed
         elif ev.keysym == 's':
-            self.player_pos[2] += v
+            self.camera[0] -= self.v[0] * self.speed
+            self.camera[2] -= self.v[2] * self.speed
 
     def redraw(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -69,13 +87,13 @@ class GLFrame(OpenGLFrame):
         glLoadIdentity()
         gluPerspective(30, self.width/self.height, 0.1, 100)
         gluLookAt(
-            self.player_pos[0] + 0.5, self.player_pos[1] + 3, self.player_pos[2] + 5,
-            self.player_pos[0] + 0.5, self.player_pos[1], self.player_pos[2] - 5,
+            self.camera[0], self.camera[1], self.camera[2],
+            self.camera[0] + self.v[0], self.camera[1] + self.v[1], self.camera[2] + self.v[2],
             0.0, 1.0, 0.0,
         )
+        # glLightfv(GL_LIGHT0, GL_AMBIENT, [1.0, 1.0, 1.0, 1.0])
         glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 0.5, 0.4, 1.0])
         glLightfv(GL_LIGHT0, GL_POSITION, [3.0, 5.0, 3.0])
-        glRotated(self.world_angle, 0.0, 1.0, 0.0)
 
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
@@ -99,8 +117,12 @@ class GLFrame(OpenGLFrame):
 
     def draw_player(self):
         glPushMatrix()
-        glRotated(-self.world_angle, 0.0, 1.0, 0.0)
-        glTranslated(self.player_pos[0], self.player_pos[1], self.player_pos[2])
+
+        x = self.camera[0] + self.v[0] * 5
+        z = self.camera[2] + self.v[2] * 5
+        glTranslated(x, 0, z)
+        glRotated(-self.angle, 0.0, 1.0, 0.0)
+
         glBegin(GL_QUADS)
         glMaterialfv(GL_FRONT, GL_DIFFUSE, [1.0, 1.0, 1.0])
         for i, face in enumerate(self.faces):
@@ -117,7 +139,7 @@ class App(tk.Tk):
         super().__init__()
         self.title('OpenGL App')
 
-        self.glframe = GLFrame(self, width=640, height=480)
+        self.glframe = GLFrame(self, width=960, height=640)
         self.glframe.pack(expand=True, fill=tk.BOTH)
         self.glframe.animate = True
 
